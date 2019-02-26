@@ -26,7 +26,7 @@ class checkIndexCommand extends Command
     {
         $this
             ->addArgument('index', InputArgument::REQUIRED, 'Index name')
-            ->addOption('create', 'c', InputOption::VALUE_OPTIONAL, 'create index if not exists')
+            ->addOption('create', 'c', InputOption::VALUE_NONE, 'create index if not exists')
             ->setDescription('Check if the index exists, and settings and mappings are correctly set')
         ;
     }
@@ -34,7 +34,7 @@ class checkIndexCommand extends Command
     protected function execute(InputInterface $input, OutputInterface $output) {
         $index = $input->getArgument('index');
         $io = new SymfonyStyle($input, $output);
-        $io->title('Überprüfe Index: ' . $index);
+        $io->title('Checking index: ' . $index);
         $indexer = $this->ir->getIndex($index);
         if ($indexer) {
             $indexer->setLogger(new ConsoleLogger($output));
@@ -49,15 +49,23 @@ class checkIndexCommand extends Command
                 if ($res === null) {
                     $io->warning('Index does not exist.');
                 } else if (is_array($res) && count($res) == 0) {
-                    $io->success('Index exists an all settings are correct');
+                    $io->success('Index exists and all settings are correct');
                 } else {
-                    if ($res['mappings']) {
-                        $io->warning('Mapping is not correct.');
-                        $io->listing($res['mappings']);
+                    if (!empty($res['mappings']['+'])) {
+                        $io->warning('Missing mappings:');
+                        $io->text(\json_encode($res['mappings']['+'], \JSON_PRETTY_PRINT));
                     }
-                    if ($res['settings']) {
-                        $io->warning('Settings are not correct.');
-                        $io->listing($res['settings']);
+                    if (!empty($res['mappings']['-'])) {
+                        $io->note('Index has unexpected additional mappings (may be auto-created):');
+                        $io->text(\json_encode($res['mappings']['-'], \JSON_PRETTY_PRINT));
+                    }
+                    if (!empty($res['settings']['+'])) {
+                        $io->warning('Missing settings:');
+                        $io->text(\json_encode($res['settings']['+'], \JSON_PRETTY_PRINT));
+                    }
+                    if (!empty($res['settings']['-'])) {
+                        $io->note('Index has unexpected additional settings:');
+                        $io->text(\json_encode($res['settings']['-'], \JSON_PRETTY_PRINT));
                     }
                 }
             }

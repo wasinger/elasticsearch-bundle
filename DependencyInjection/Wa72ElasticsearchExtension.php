@@ -34,14 +34,16 @@ class Wa72ElasticsearchExtension extends Extension
             // new Index($elasticsearch_client, $name, $mappings, $settings, $aliases)
 
             if (!empty($conf['settings_jsonfile'])) {
-                $settings = $this->readJsonFile($container->get('kernel')->locateResource($conf['settings_jsonfile']));
-                $settings = array_replace($settings, $conf['settings']);
+                $settings = $this->readJsonFile($this->findFile($container, $conf['settings_jsonfile']));
+                if (!empty($settings['settings'])) $settings = $settings['settings'];
+                $settings = \array_replace_recursive($settings, $conf['settings']);
             } else {
                 $settings = $conf['settings'];
             }
             if (!empty($conf['mappings_jsonfile'])) {
-                $mappings = $this->readJsonFile($container->get('kernel')->locateResource($conf['mappings_jsonfile']));
-                $mappings = array_replace($mappings, $conf['mappings']);
+                $mappings = $this->readJsonFile($this->findFile($container, $conf['mappings_jsonfile']));
+                if (!empty($mappings['mappings'])) $mappings = $mappings['mappings'];
+                $mappings = \array_replace_recursive($mappings, $conf['mappings']);
             } else {
                 $mappings = $conf['mappings'];
             }
@@ -61,6 +63,28 @@ class Wa72ElasticsearchExtension extends Extension
         $definition->addArgument(new Reference('elasticsearch.index_registry'));
         $definition->addTag('console.command');
         $container->setDefinition(checkIndexCommand::class, $definition);
+    }
+
+    private function findFile(ContainerBuilder $container, string $file)
+    {
+        if (substr($file,0, 1) == '@') {
+            // Bundle notation
+            $wanted = substr($file, 1, strpos($file, \DIRECTORY_SEPARATOR) -1);
+            $bundles = $container->getParameter('kernel.bundles');
+            foreach ($bundles as $bundleName => $bundleClass) {
+                if ($bundleName == $wanted) {
+                    $refClass = new \ReflectionClass($bundleClass);
+                    $bundleDir = dirname($refClass->getFileName());
+                    $filepath = $bundleDir . substr($file, strpos($file, \DIRECTORY_SEPARATOR));
+                    if (!\file_exists($filepath)) {
+                        throw new \Exception('File ' . $filepath . ' not found');
+                    }
+                    return $filepath;
+                }
+            }
+            throw new \Exception('File ' . $file . ': Bundle not found');
+        }
+        throw new \Exception('File ' . $file . ' not found: Finding files outside bundles not yet implemented');
     }
 
     private function readJsonFile($file)
