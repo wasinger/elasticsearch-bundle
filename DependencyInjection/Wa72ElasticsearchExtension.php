@@ -33,13 +33,13 @@ class Wa72ElasticsearchExtension extends Extension
         foreach ($config['indexes'] as $name => $conf) {
             // new Index($elasticsearch_client, $name, $mappings, $settings, $aliases)
 
-            if ($conf['settings_jsonfile']) {
+            if (!empty($conf['settings_jsonfile'])) {
                 $settings = $this->readJsonFile($container->get('kernel')->locateResource($conf['settings_jsonfile']));
                 $settings = array_replace($settings, $conf['settings']);
             } else {
                 $settings = $conf['settings'];
             }
-            if ($conf['mappings_jsonfile']) {
+            if (!empty($conf['mappings_jsonfile'])) {
                 $mappings = $this->readJsonFile($container->get('kernel')->locateResource($conf['mappings_jsonfile']));
                 $mappings = array_replace($mappings, $conf['mappings']);
             } else {
