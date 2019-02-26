@@ -35,7 +35,7 @@ class Index
         $this->mappings = $mappings;
         $this->settings = $settings;
         $this->aliases = $aliases;
-        if ($mappings['mappings']) {
+        if (isset($mappings['mappings'])) {
             $mappings = $mappings['mappings'];
         }
         if (count($mappings)) {
