@@ -38,8 +38,14 @@ class Index
         if (isset($mappings['mappings'])) {
             $mappings = $mappings['mappings'];
         }
-        if (count($mappings)) {
-            $this->type = array_keys($mappings)[0];
+        if (!empty($mappings)) {
+            if (count($mappings) == 1) {
+                // Get Type from mappings array
+                $this->type = array_keys($mappings)[0];
+            } else {
+                // In preparation for ES 6 we support only one type per index
+                throw new \Exception('Mappings array is supposed to contain exactly one element the key of which is the mapping type.');
+            }
         }
     }
 
@@ -58,7 +64,7 @@ class Index
 
     /**
      *
-     * @return array|null Return null if index does not exist, empty array if mappings and settings match, array with wanted settings that do not match the real index otherwise
+     * @return array|null Return null if index does not exist, empty array if mappings and settings match, array differences otherwise
      */
     public function checkSettingsAndMappings()
     {
@@ -75,13 +81,28 @@ class Index
         return $a;
     }
 
+    public function checkAliases()
+    {
+        $current_index = $this->indexhelper->getCurrentIndexVersionName($this->index_name);
+        $aliases = $this->indexhelper->getAliases($current_index);
+        return array_diff($this->aliases, $aliases);
+    }
+
+    /**
+     * @return array
+     */
+    public function setAliases()
+    {
+        return $this->indexhelper->setAliases($this->indexhelper->getCurrentIndexVersionName($this->index_name), $this->aliases);
+    }
+
     public function prepare($use_alias = true, $reindex_data = true)
     {
         $index = $this->indexhelper->prepareIndex(
             $this->index_name,
             $this->mappings,
             $this->settings,
-            null,
+            $this->aliases,
             [
                 'use_alias' => $use_alias,
                 'reindex_data' => $reindex_data

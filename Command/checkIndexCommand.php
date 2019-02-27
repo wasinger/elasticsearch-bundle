@@ -26,7 +26,8 @@ class checkIndexCommand extends Command
     {
         $this
             ->addArgument('index', InputArgument::REQUIRED, 'Index name')
-            ->addOption('create', 'c', InputOption::VALUE_NONE, 'create index if not exists')
+            ->addOption('create', 'c', InputOption::VALUE_NONE, 'create index if it does not exist')
+            ->addOption('alias', 'a', InputOption::VALUE_NONE, 'set missing aliases for index')
             ->setDescription('Check if the index exists, and settings and mappings are correctly set')
         ;
     }
@@ -44,28 +45,37 @@ class checkIndexCommand extends Command
                 } else {
                     $io->error('An error occured.');
                 }
+            } elseif ($input->getOption('alias')) {
+                $r = $indexer->setAliases();
+                $io->text(\json_encode($r));
             } else {
                 $res = $indexer->checkSettingsAndMappings();
                 if ($res === null) {
                     $io->warning('Index does not exist.');
                 } else if (is_array($res) && count($res) == 0) {
-                    $io->success('Index exists and all settings are correct');
+                    // check aliases
+                    $aliasdiff = $indexer->checkAliases();
+                    if (!empty($aliasdiff)) {
+                        $io->note('Aliases missing: ' . join(', ', $aliasdiff));
+                    } else {
+                        $io->success('Index exists and all settings are correct');
+                    }
                 } else {
-                    if (!empty($res['mappings']['+'])) {
-                        $io->warning('Missing mappings:');
-                        $io->text(\json_encode($res['mappings']['+'], \JSON_PRETTY_PRINT));
-                    }
                     if (!empty($res['mappings']['-'])) {
-                        $io->note('Index has unexpected additional mappings (may be auto-created):');
-                        $io->text(\json_encode($res['mappings']['-'], \JSON_PRETTY_PRINT));
+                        $io->warning('Missing mappings:');
+                        if ($io->isVerbose()) $io->text(\json_encode($res['mappings']['-'], \JSON_PRETTY_PRINT));
                     }
-                    if (!empty($res['settings']['+'])) {
-                        $io->warning('Missing settings:');
-                        $io->text(\json_encode($res['settings']['+'], \JSON_PRETTY_PRINT));
+                    if (!empty($res['mappings']['+'])) {
+                        $io->note('Index has unexpected additional mappings (may be auto-created)');
+                        if ($io->isVerbose()) $io->text(\json_encode($res['mappings']['+'], \JSON_PRETTY_PRINT));
                     }
                     if (!empty($res['settings']['-'])) {
-                        $io->note('Index has unexpected additional settings:');
-                        $io->text(\json_encode($res['settings']['-'], \JSON_PRETTY_PRINT));
+                        $io->warning('Missing settings:');
+                        if ($io->isVerbose()) $io->text(\json_encode($res['settings']['-'], \JSON_PRETTY_PRINT));
+                    }
+                    if (!empty($res['settings']['+'])) {
+                        $io->note('Index has unexpected additional settings');
+                        if ($io->isVerbose()) $io->text(\json_encode($res['settings']['+'], \JSON_PRETTY_PRINT));
                     }
                 }
             }
