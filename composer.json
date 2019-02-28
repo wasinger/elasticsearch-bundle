@@ -1,6 +1,7 @@
 {
     "name": "wa72/elasticsearch-bundle",
     "type": "symfony-bundle",
+    "license": "MIT",
     "authors": [
         {
             "name": "Christoph Singer",
