@@ -161,6 +161,64 @@ class Index
     }
 
     /**
+     * Delete one document by id
+     *
+     * @param $id
+     * @throws \Exception
+     */
+    public function delete($id)
+    {
+        $index = $this->indexhelper->getCurrentIndexVersionName($this->index_name);
+        $params = [
+            'index' => $index,
+            'type' => $this->type,
+            'id' => $id
+        ];
+
+        $r = $this->es->delete($params);
+
+//        // Example responses:
+//        1. Successfully deleted:
+//        {
+//            "found": true,
+//            "_index": "index-6",
+//            "_type": "doc",
+//            "_id": "8830",
+//            "_version": 17,
+//            "result": "deleted",
+//            "_shards": {
+//                "total": 2,
+//                "successful": 1,
+//                "failed": 0
+//            }
+//        }
+//
+//        2. Not found:
+//        {
+//            "found": false,
+//            "_index": "index-6",
+//            "_type": "doc",
+//            "_id": "8830",
+//            "_version": 3,
+//            "result": "not_found",
+//            "_shards": {
+//                "total": 2,
+//                "successful": 1,
+//                "failed": 0
+//            }
+//        }
+
+        // We accept "not_found" as a successful result for the delete operation
+        if ($r['result'] == 'deleted' || $r['result'] == 'not_found') {
+            $this->log(LogLevel::DEBUG, sprintf('Document %s/%s/%s successfully deleted.', $index, $this->type, $id));
+        } else {
+            $this->log(LogLevel::ERROR, sprintf('Document %s/%s/%s could not be deleted.', $index, $this->type, $id));
+            throw new \Exception(sprintf('Document %s/%s/%s could not be deleted.', $index, $this->type, $id));
+        }
+
+    }
+
+    /**
      * @param iterable $data
      * @return array Array of IDs of indexed documents
      */
