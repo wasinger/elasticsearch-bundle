@@ -57,10 +57,11 @@ class Wa72ElasticsearchExtension extends Extension
             $container->setDefinition(sprintf('elasticsearch.index.%s', $name), $definition);
             $ir->addMethodCall('addIndex', [new Reference(sprintf('elasticsearch.index.%s', $name))]);
         }
-        $container->setDefinition('elasticsearch.index_registry', $ir);
+        $container->setDefinition(IndexRegistry::class, $ir);
+        $container->setAlias('elasticsearch.index_registry', IndexRegistry::class);
 
         $definition = new Definition(checkIndexCommand::class);
-        $definition->addArgument(new Reference('elasticsearch.index_registry'));
+        $definition->addArgument(new Reference(IndexRegistry::class));
         $definition->addTag('console.command');
         $container->setDefinition(checkIndexCommand::class, $definition);
     }

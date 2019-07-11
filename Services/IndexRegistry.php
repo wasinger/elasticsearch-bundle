@@ -12,7 +12,7 @@ class IndexRegistry
     /**
      * @var Index[]
      */
-    private $indexes;
+    private $indexes = [];
 
     public function __construct(Client $es)
     {
@@ -30,5 +30,10 @@ class IndexRegistry
             return $this->indexes[$name];
         }
         return null;
+    }
+
+    public function list()
+    {
+        return \array_keys($this->indexes);
     }
 }
