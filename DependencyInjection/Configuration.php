@@ -9,8 +9,13 @@ class Configuration implements ConfigurationInterface
     public function getConfigTreeBuilder()
     {
         $treeBuilder = new TreeBuilder('wa72_elasticsearch');
-
-        $treeBuilder->getRootNode()
+        if (method_exists($treeBuilder, 'getRootNode')) {
+            $rootNode = $treeBuilder->getRootNode();
+        } else {
+            // BC layer for symfony/config 4.1 and older
+            $rootNode = $treeBuilder->root('wa72_elasticsearch');
+        }
+        $rootNode
             ->children()
                 ->scalarNode('es_server')->defaultValue('localhost:9200')->end()
                 ->arrayNode('indexes')
