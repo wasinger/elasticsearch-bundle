@@ -8,7 +8,7 @@ use Symfony\Component\DependencyInjection\Definition;
 use Symfony\Component\DependencyInjection\Reference;
 use Symfony\Component\HttpKernel\DependencyInjection\Extension;
 use Wa72\ElasticsearchBundle\Command\checkIndexCommand;
-use Wa72\ElasticsearchBundle\Services\Index;
+use Wa72\ESTools\Index;
 use Wa72\ElasticsearchBundle\Services\IndexRegistry;
 
 class Wa72ElasticsearchExtension extends Extension

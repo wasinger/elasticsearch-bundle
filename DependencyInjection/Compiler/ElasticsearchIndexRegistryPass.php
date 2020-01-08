@@ -4,7 +4,7 @@ namespace Wa72\ElasticsearchBundle\DependencyInjection\Compiler;
 use Symfony\Component\DependencyInjection\Compiler\CompilerPassInterface;
 use Symfony\Component\DependencyInjection\ContainerBuilder;
 use Symfony\Component\DependencyInjection\Reference;
-use Wa72\ElasticsearchBundle\Services\Index;
+use Wa72\ESTools\Index;
 use Wa72\ElasticsearchBundle\Services\IndexRegistry;
 
 class ElasticsearchIndexRegistryPass implements CompilerPassInterface

@@ -25,7 +25,7 @@ class checkIndexCommand extends Command
     protected function configure()
     {
         $this
-            ->addArgument('index', InputArgument::REQUIRED, 'Index name')
+            ->addArgument('index', InputArgument::OPTIONAL, 'Index name')
             ->addOption('create', 'c', InputOption::VALUE_NONE, 'create index if it does not exist')
             ->addOption('alias', 'a', InputOption::VALUE_NONE, 'set missing aliases for index')
             ->setDescription('Check if the index exists, and settings and mappings are correctly set')
@@ -33,54 +33,68 @@ class checkIndexCommand extends Command
     }
 
     protected function execute(InputInterface $input, OutputInterface $output) {
-        $index = $input->getArgument('index');
         $io = new SymfonyStyle($input, $output);
-        $io->title('Checking index: ' . $index);
-        $indexer = $this->ir->getIndex($index);
-        if ($indexer) {
-            $indexer->setLogger(new ConsoleLogger($output));
-            if ($input->getOption('create')) {
-                if (($res = $indexer->prepare()) != false) {
-                    $io->success('Done. Current index: ' . $res);
-                } else {
-                    $io->error('An error occured.');
-                }
-            } elseif ($input->getOption('alias')) {
-                $r = $indexer->setAliases();
-                $io->text(\json_encode($r));
-            } else {
-                $res = $indexer->checkSettingsAndMappings();
-                if ($res === null) {
-                    $io->warning('Index does not exist.');
-                } else if (is_array($res) && count($res) == 0) {
-                    // check aliases
-                    $aliasdiff = $indexer->checkAliases();
-                    if (!empty($aliasdiff)) {
-                        $io->note('Aliases missing: ' . join(', ', $aliasdiff));
+        $name = $input->getArgument('index');
+        if ($name) {
+            $io->title('Checking index: ' . $name);
+            $index = $this->ir->getIndex($name);
+            if ($index) {
+                $index->setLogger(new ConsoleLogger($output));
+                if ($input->getOption('create')) {
+                    if (($res = $index->prepare()) != false) {
+                        $io->success('Done. Current index: ' . $res);
                     } else {
-                        $io->success('Index exists and all settings are correct');
+                        $io->error('An error occured.');
                     }
+                } elseif ($input->getOption('alias')) {
+                    $r = $index->setAliases();
+                    $io->text(\json_encode($r));
                 } else {
-                    if (!empty($res['mappings']['-'])) {
-                        $io->warning('Missing mappings:');
-                        if ($io->isVerbose()) $io->text(\json_encode($res['mappings']['-'], \JSON_PRETTY_PRINT));
-                    }
-                    if (!empty($res['mappings']['+'])) {
-                        $io->note('Index has unexpected additional mappings (may be auto-created)');
-                        if ($io->isVerbose()) $io->text(\json_encode($res['mappings']['+'], \JSON_PRETTY_PRINT));
-                    }
-                    if (!empty($res['settings']['-'])) {
-                        $io->warning('Missing settings:');
-                        if ($io->isVerbose()) $io->text(\json_encode($res['settings']['-'], \JSON_PRETTY_PRINT));
-                    }
-                    if (!empty($res['settings']['+'])) {
-                        $io->note('Index has unexpected additional settings');
-                        if ($io->isVerbose()) $io->text(\json_encode($res['settings']['+'], \JSON_PRETTY_PRINT));
+                    $res = $index->checkSettingsAndMappings();
+                    if ($res === null) {
+                        $io->warning('Index does not exist.');
+                    } else {
+                        if (is_array($res) && count($res) == 0) {
+                            // check aliases
+                            $aliasdiff = $index->checkAliases();
+                            if (!empty($aliasdiff)) {
+                                $io->note('Aliases missing: ' . join(', ', $aliasdiff));
+                            } else {
+                                $io->success('Index exists and all settings are correct');
+                            }
+                        } else {
+                            if (!empty($res['mappings']['-'])) {
+                                $io->warning('Missing mappings:');
+                                if ($io->isVerbose()) {
+                                    $io->text(\json_encode($res['mappings']['-'], \JSON_PRETTY_PRINT));
+                                }
+                            }
+                            if (!empty($res['mappings']['+'])) {
+                                $io->note('Index has unexpected additional mappings (may be auto-created)');
+                                if ($io->isVerbose()) {
+                                    $io->text(\json_encode($res['mappings']['+'], \JSON_PRETTY_PRINT));
+                                }
+                            }
+                            if (!empty($res['settings']['-'])) {
+                                $io->warning('Missing settings:');
+                                if ($io->isVerbose()) {
+                                    $io->text(\json_encode($res['settings']['-'], \JSON_PRETTY_PRINT));
+                                }
+                            }
+                            if (!empty($res['settings']['+'])) {
+                                $io->note('Index has unexpected additional settings');
+                                if ($io->isVerbose()) {
+                                    $io->text(\json_encode($res['settings']['+'], \JSON_PRETTY_PRINT));
+                                }
+                            }
+                        }
                     }
                 }
+            } else {
+                $io->error('No index configured with this name: ' . $name . '. Available indices: ' . join(', ', $this->ir->list()));
             }
         } else {
-            $io->error('No index configured with this name: ' . $index . '. Available indices: ' . join(', ', $this->ir->list()));
+            $io->note('No index given. Available indices: ' . join(', ', $this->ir->list()));
         }
     }
 }

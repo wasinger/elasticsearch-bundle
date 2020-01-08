@@ -2,6 +2,7 @@
 namespace Wa72\ElasticsearchBundle\Services;
 
 use Elasticsearch\Client;
+use Wa72\ESTools\Index;
 
 class IndexRegistry
 {
