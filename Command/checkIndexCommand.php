@@ -80,7 +80,7 @@ class checkIndexCommand extends Command
                 }
             }
         } else {
-            $io->error('No index configured with this name: ' . $index);
+            $io->error('No index configured with this name: ' . $index . '. Available indices: ' . join(', ', $this->ir->list()));
         }
     }
 }
