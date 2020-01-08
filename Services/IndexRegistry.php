@@ -32,6 +32,11 @@ class IndexRegistry
         return null;
     }
 
+    /**
+     * List available index names
+     *
+     * @return string[]
+     */
     public function list()
     {
         return \array_keys($this->indexes);
