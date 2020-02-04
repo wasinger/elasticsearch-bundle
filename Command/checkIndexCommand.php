@@ -29,6 +29,7 @@ class checkIndexCommand extends Command
             ->addOption('create', 'c', InputOption::VALUE_NONE, '(re-)create index if it does not exist, or if mapping or settings do not match')
             ->addOption('reindex', 'r', InputOption::VALUE_NONE, 'reindex after creating new index version')
             ->addOption('alias', 'a', InputOption::VALUE_NONE, 'set missing aliases for index')
+            ->addOption('switchalias', null, InputOption::VALUE_REQUIRED, 'Switch index alias to given index version', null)
             ->setDescription('Check if the index exists, and settings and mappings are correctly set')
         ;
     }
@@ -51,6 +52,18 @@ class checkIndexCommand extends Command
                 } elseif ($input->getOption('alias')) {
                     $r = $index->setAliases();
                     $io->text(\json_encode($r));
+                } elseif ($new_real_index = $input->getOption('switchalias')) {
+                    try {
+                        $index->switchIndexVersion($new_real_index);
+                        $current_real_index = $index->getRealIndexName();
+                        if ($current_real_index == $new_real_index) {
+                            $io->success(sprintf('Current version for index %s is now %s', $name, $current_real_index));
+                        } else {
+                            throw new \Exception(sprintf('Could not switch index alias, current version index is still %s', $current_real_index));
+                        }
+                    } catch (\Exception $e) {
+                        $io->error(sprintf('Could not switch index alias %s to version %s. Error Message: %s', $name, $new_real_index, $e->getMessage()));
+                    }
                 } else {
                     $res = $index->checkSettingsAndMappings();
                     if ($res === null) {
