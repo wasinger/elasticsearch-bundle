@@ -26,7 +26,8 @@ class checkIndexCommand extends Command
     {
         $this
             ->addArgument('index', InputArgument::OPTIONAL, 'Index name')
-            ->addOption('create', 'c', InputOption::VALUE_NONE, 'create index if it does not exist')
+            ->addOption('create', 'c', InputOption::VALUE_NONE, '(re-)create index if it does not exist, or if mapping or settings do not match')
+            ->addOption('reindex', 'r', InputOption::VALUE_NONE, 'reindex after creating new index version')
             ->addOption('alias', 'a', InputOption::VALUE_NONE, 'set missing aliases for index')
             ->setDescription('Check if the index exists, and settings and mappings are correctly set')
         ;
@@ -41,7 +42,8 @@ class checkIndexCommand extends Command
             if ($index) {
                 $index->setLogger(new ConsoleLogger($output));
                 if ($input->getOption('create')) {
-                    if (($res = $index->prepare()) != false) {
+                    $reindex = $input->getOption('reindex');
+                    if (($res = $index->prepare(  true, $reindex)) != false) {
                         $io->success('Done. Current index: ' . $res);
                     } else {
                         $io->error('An error occured.');
@@ -54,6 +56,10 @@ class checkIndexCommand extends Command
                     if ($res === null) {
                         $io->warning('Index does not exist.');
                     } else {
+                        $real_index = $index->getRealIndexName();
+                        if ($real_index !== $name) {
+                            $io->note('"' . $name . '" is an alias for: ' . $real_index);
+                        }
                         if (is_array($res) && count($res) == 0) {
                             // check aliases
                             $aliasdiff = $index->checkAliases();
