@@ -16,6 +16,12 @@ class checkIndexCommand extends Command
     protected static $defaultName = 'elasticsearch:checkindex';
     private $ir;
 
+    const RETURN_OK = 0;
+    const RETURN_WARNING = 1;
+    const RETURN_ERROR = 2;
+    const RETURN_ERROR_VERSIONALIAS = 3;
+    const RETURN_ERROR_NO_SUCH_INDEX = 4;
+
     public function __construct(IndexRegistry $ir, ?string $name = null)
     {
         parent::__construct($name);
@@ -37,6 +43,7 @@ class checkIndexCommand extends Command
     protected function execute(InputInterface $input, OutputInterface $output) {
         $io = new SymfonyStyle($input, $output);
         $name = $input->getArgument('index');
+        $return = self::RETURN_WARNING;
         if ($name) {
             $io->title('Checking index: ' . $name);
             $index = $this->ir->getIndex($name);
@@ -46,8 +53,10 @@ class checkIndexCommand extends Command
                     $reindex = $input->getOption('reindex');
                     if (($res = $index->prepare(  true, $reindex)) != false) {
                         $io->success('Done. Current index: ' . $res);
+                        $return = self::RETURN_OK;
                     } else {
                         $io->error('An error occured.');
+                        $return = self::RETURN_ERROR;
                     }
                 } elseif ($input->getOption('alias')) {
                     $r = $index->setAliases();
@@ -58,16 +67,19 @@ class checkIndexCommand extends Command
                         $current_real_index = $index->getRealIndexName();
                         if ($current_real_index == $new_real_index) {
                             $io->success(sprintf('Current version for index %s is now %s', $name, $current_real_index));
+                            $return = self::RETURN_OK;
                         } else {
                             throw new \Exception(sprintf('Could not switch index alias, current version index is still %s', $current_real_index));
                         }
                     } catch (\Exception $e) {
                         $io->error(sprintf('Could not switch index alias %s to version %s. Error Message: %s', $name, $new_real_index, $e->getMessage()));
+                        $return = self::RETURN_ERROR_VERSIONALIAS;
                     }
                 } else {
                     $res = $index->checkSettingsAndMappings();
                     if ($res === null) {
                         $io->warning('Index does not exist.');
+                        $return = self::RETURN_WARNING;
                     } else {
                         $real_index = $index->getRealIndexName();
                         if ($real_index !== $name) {
@@ -77,9 +89,11 @@ class checkIndexCommand extends Command
                             // check aliases
                             $aliasdiff = $index->checkAliases();
                             if (!empty($aliasdiff)) {
-                                $io->note('Aliases missing: ' . join(', ', $aliasdiff));
+                                $io->warning('Aliases missing: ' . join(', ', $aliasdiff));
+                                $return = self::RETURN_WARNING;
                             } else {
                                 $io->success('Index exists and all settings are correct');
+                                $return = self::RETURN_OK;
                             }
                         } else {
                             if (!empty($res['mappings']['-'])) {
@@ -87,33 +101,40 @@ class checkIndexCommand extends Command
                                 if ($io->isVerbose()) {
                                     $io->text(\json_encode($res['mappings']['-'], \JSON_PRETTY_PRINT));
                                 }
+                                $return = self::RETURN_WARNING;
                             }
                             if (!empty($res['mappings']['+'])) {
-                                $io->note('Index has unexpected additional mappings (may be auto-created)');
+                                $io->warning('Index has unexpected additional mappings (may be auto-created)');
                                 if ($io->isVerbose()) {
                                     $io->text(\json_encode($res['mappings']['+'], \JSON_PRETTY_PRINT));
                                 }
+                                $return = self::RETURN_WARNING;
                             }
                             if (!empty($res['settings']['-'])) {
                                 $io->warning('Missing settings:');
                                 if ($io->isVerbose()) {
                                     $io->text(\json_encode($res['settings']['-'], \JSON_PRETTY_PRINT));
                                 }
+                                $return = self::RETURN_WARNING;
                             }
                             if (!empty($res['settings']['+'])) {
-                                $io->note('Index has unexpected additional settings');
+                                $io->warning('Index has unexpected additional settings');
                                 if ($io->isVerbose()) {
                                     $io->text(\json_encode($res['settings']['+'], \JSON_PRETTY_PRINT));
                                 }
+                                $return = self::RETURN_WARNING;
                             }
                         }
                     }
                 }
             } else {
                 $io->error('No index configured with this name: ' . $name . '. Available indices: ' . join(', ', $this->ir->list()));
+                $return = self::RETURN_ERROR_NO_SUCH_INDEX;
             }
         } else {
             $io->note('No index given. Available indices: ' . join(', ', $this->ir->list()));
+            $return = self::RETURN_OK;
         }
+        return $return;
     }
 }
