@@ -6,16 +6,10 @@ use Symfony\Component\Config\Definition\ConfigurationInterface;
 
 class Configuration implements ConfigurationInterface
 {
-    public function getConfigTreeBuilder()
+    public function getConfigTreeBuilder(): TreeBuilder
     {
         $treeBuilder = new TreeBuilder('wa72_elasticsearch');
-        if (method_exists($treeBuilder, 'getRootNode')) {
-            $rootNode = $treeBuilder->getRootNode();
-        } else {
-            // BC layer for symfony/config 4.1 and older
-            $rootNode = $treeBuilder->root('wa72_elasticsearch');
-        }
-        $rootNode
+        $treeBuilder->getRootNode()
             ->children()
                 ->scalarNode('es_server')->defaultValue('localhost:9200')->end()
                 ->arrayNode('indexes')

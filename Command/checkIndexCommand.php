@@ -11,21 +11,19 @@ use Symfony\Component\Console\Output\OutputInterface;
 use Symfony\Component\Console\Style\SymfonyStyle;
 use Wa72\ElasticsearchBundle\Services\IndexRegistry;
 
+#[\Symfony\Component\Console\Attribute\AsCommand(name: 'elasticsearch:checkindex', description: 'Check if the index exists, and settings and mappings are correctly set')]
 class checkIndexCommand extends Command
 {
-    protected static $defaultName = 'elasticsearch:checkindex';
-    private $ir;
 
-    const RETURN_OK = 0;
+    const RETURN_OK = Command::SUCCESS;
     const RETURN_WARNING = 1;
     const RETURN_ERROR = 2;
     const RETURN_ERROR_VERSIONALIAS = 3;
     const RETURN_ERROR_NO_SUCH_INDEX = 4;
 
-    public function __construct(IndexRegistry $ir, ?string $name = null)
+    public function __construct(private IndexRegistry $ir)
     {
-        parent::__construct($name);
-        $this->ir = $ir;
+        parent::__construct();
     }
 
     protected function configure()
@@ -36,11 +34,11 @@ class checkIndexCommand extends Command
             ->addOption('reindex', 'r', InputOption::VALUE_NONE, 'reindex after creating new index version')
             ->addOption('alias', 'a', InputOption::VALUE_NONE, 'set missing aliases for index')
             ->addOption('switchalias', null, InputOption::VALUE_REQUIRED, 'Switch index alias to given index version', null)
-            ->setDescription('Check if the index exists, and settings and mappings are correctly set')
         ;
     }
 
-    protected function execute(InputInterface $input, OutputInterface $output) {
+    public function execute(InputInterface $input, OutputInterface $output): int
+    {
         $io = new SymfonyStyle($input, $output);
         $name = $input->getArgument('index');
         $return = self::RETURN_WARNING;
@@ -128,13 +126,23 @@ class checkIndexCommand extends Command
                     }
                 }
             } else {
-                $io->error('No index configured with this name: ' . $name . '. Available indices: ' . join(', ', $this->ir->list()));
+                $io->error('No index configured with this name: ' . $name . '. ' . $this->getAvailableIndicesNote());
                 $return = self::RETURN_ERROR_NO_SUCH_INDEX;
             }
         } else {
-            $io->note('No index given. Available indices: ' . join(', ', $this->ir->list()));
+            $io->note('No index given. ' . $this->getAvailableIndicesNote());
             $return = self::RETURN_OK;
         }
         return $return;
+    }
+
+    private function getAvailableIndicesNote(): string
+    {
+        $available_indices = $this->ir->list();
+        if (empty($available_indices)) {
+            return 'No indices configured.';
+        } else {
+            return 'Available indices: ' . join(', ', $available_indices);
+        }
     }
 }
