@@ -41,6 +41,7 @@ class checkIndexCommand extends Command
     {
         $io = new SymfonyStyle($input, $output);
         $name = $input->getArgument('index');
+        $io->info('Elasticsearch hosts: ' . join(', ', $this->ir->getHosts()));
         $return = self::RETURN_WARNING;
         if ($name) {
             $io->title('Checking index: ' . $name);
@@ -51,6 +52,7 @@ class checkIndexCommand extends Command
                     $reindex = $input->getOption('reindex');
                     if (($res = $index->prepare(  true, $reindex)) != false) {
                         $io->success('Done. Current index: ' . $res);
+                        $io->info($index->count() . ' documents in index.');
                         $return = self::RETURN_OK;
                     } else {
                         $io->error('An error occured.');
@@ -65,6 +67,7 @@ class checkIndexCommand extends Command
                         $current_real_index = $index->getRealIndexName();
                         if ($current_real_index == $new_real_index) {
                             $io->success(sprintf('Current version for index %s is now %s', $name, $current_real_index));
+                            $io->info($index->count() . ' documents in index.');
                             $return = self::RETURN_OK;
                         } else {
                             throw new \Exception(sprintf('Could not switch index alias, current version index is still %s', $current_real_index));
@@ -76,13 +79,14 @@ class checkIndexCommand extends Command
                 } else {
                     $res = $index->checkSettingsAndMappings();
                     if ($res === null) {
-                        $io->warning('Index does not exist.');
+                        $io->warning('Index does not exist. Use the `--create` option to create it.');
                         $return = self::RETURN_WARNING;
                     } else {
                         $real_index = $index->getRealIndexName();
                         if ($real_index !== $name) {
-                            $io->note('"' . $name . '" is an alias for: ' . $real_index);
+                            $io->info('"' . $name . '" is an alias for: ' . $real_index);
                         }
+                        $io->info($index->count() . ' documents in index.');
                         if (is_array($res) && count($res) == 0) {
                             // check aliases
                             $aliasdiff = $index->checkAliases();

@@ -8,6 +8,7 @@ use Symfony\Component\DependencyInjection\Definition;
 use Symfony\Component\DependencyInjection\Reference;
 use Symfony\Component\HttpKernel\DependencyInjection\Extension;
 use Wa72\ElasticsearchBundle\Command\checkIndexCommand;
+use Wa72\ElasticsearchBundle\Command\deleteIndexCommand;
 use Wa72\ESTools\Index;
 use Wa72\ElasticsearchBundle\Services\IndexRegistry;
 
@@ -17,10 +18,13 @@ class Wa72ElasticsearchExtension extends Extension
     {
         $configuration = new Configuration();
         $config = $this->processConfiguration($configuration, $configs);
+        $es_server = $config['es_server'];
+        if (is_scalar($es_server)) $es_server = [$es_server];
+        $container->setParameter('wa72_elasticsearch.es_server', $es_server);
 
         $cb = new Definition(ClientBuilder::class);
         $cb->setFactory([ClientBuilder::class, 'create']);
-        $cb->addMethodCall('setHosts', [[$config['es_server']]]);
+        $cb->addMethodCall('setHosts', [$container->getParameter('wa72_elasticsearch.es_server')]);
         $container->setDefinition('elasticsearch.clientbuilder', $cb);
 
         $esc = new Definition(Client::class);
@@ -29,10 +33,9 @@ class Wa72ElasticsearchExtension extends Extension
 
         $ir = new Definition(IndexRegistry::class);
         $ir->addArgument(new Reference('elasticsearch.client'));
+        $ir->addArgument($container->getParameter('wa72_elasticsearch.es_server'));
 
         foreach ($config['indexes'] as $name => $conf) {
-            // new Index($elasticsearch_client, $name, $mappings, $settings, $aliases)
-
             if (!empty($conf['settings_jsonfile'])) {
                 $settings = $this->readJsonFile($this->findFile($container, $conf['settings_jsonfile']));
                 if (!empty($settings['settings'])) $settings = $settings['settings'];
@@ -64,6 +67,11 @@ class Wa72ElasticsearchExtension extends Extension
         $definition->addArgument(new Reference(IndexRegistry::class));
         $definition->addTag('console.command');
         $container->setDefinition(checkIndexCommand::class, $definition);
+
+        $definition = new Definition(deleteIndexCommand::class);
+        $definition->addArgument(new Reference(IndexRegistry::class));
+        $definition->addTag('console.command');
+        $container->setDefinition(deleteIndexCommand::class, $definition);
     }
 
     private function findFile(ContainerBuilder $container, string $file)

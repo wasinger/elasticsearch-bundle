@@ -15,9 +15,12 @@ class IndexRegistry
      */
     private $indexes = [];
 
-    public function __construct(Client $es)
+    private $hosts = [];
+
+    public function __construct(Client $es, array $hosts = [])
     {
         $this->es = $es;
+        $this->hosts = $hosts;
     }
 
     public function addIndex(Index $index)
@@ -41,5 +44,10 @@ class IndexRegistry
     public function list()
     {
         return \array_keys($this->indexes);
+    }
+
+    public function getHosts()
+    {
+        return $this->hosts;
     }
 }

@@ -6,7 +6,7 @@ use Wa72\ElasticsearchBundle\DependencyInjection\Compiler\ElasticsearchIndexRegi
 
 class Wa72ElasticsearchBundle extends Bundle
 {
-    public function build(ContainerBuilder $container)
+    public function build(ContainerBuilder $container): void
     {
         parent::build($container);
         $container->addCompilerPass(new ElasticsearchIndexRegistryPass());
