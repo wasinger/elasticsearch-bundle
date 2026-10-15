@@ -1,8 +1,6 @@
 <?php
 namespace Wa72\ElasticsearchBundle\DependencyInjection;
 
-use Elasticsearch\Client;
-use Elasticsearch\ClientBuilder;
 use Symfony\Component\DependencyInjection\ContainerBuilder;
 use Symfony\Component\DependencyInjection\Definition;
 use Symfony\Component\DependencyInjection\Reference;
@@ -10,6 +8,7 @@ use Symfony\Component\HttpKernel\DependencyInjection\Extension;
 use Wa72\ElasticsearchBundle\Command\checkIndexCommand;
 use Wa72\ElasticsearchBundle\Command\deleteIndexCommand;
 use Wa72\ESTools\Index;
+use Wa72\ElasticsearchBundle\Services\ClientFactory;
 use Wa72\ElasticsearchBundle\Services\IndexRegistry;
 
 class Wa72ElasticsearchExtension extends Extension
@@ -18,18 +17,37 @@ class Wa72ElasticsearchExtension extends Extension
     {
         $configuration = new Configuration();
         $config = $this->processConfiguration($configuration, $configs);
+        $engine = $config['engine'];
         $es_server = $config['es_server'];
         if (is_scalar($es_server)) $es_server = [$es_server];
+        $es_server = ClientFactory::normalizeHosts($es_server);
         $container->setParameter('wa72_elasticsearch.es_server', $es_server);
+        $container->setParameter('wa72_elasticsearch.engine', $engine);
+        $container->setParameter('wa72_elasticsearch.http_client', $config['http_client']);
 
-        $cb = new Definition(ClientBuilder::class);
-        $cb->setFactory([ClientBuilder::class, 'create']);
-        $cb->addMethodCall('setHosts', [$container->getParameter('wa72_elasticsearch.es_server')]);
-        $container->setDefinition('elasticsearch.clientbuilder', $cb);
+        if (!empty($config['client_service'])) {
+            $container->setAlias('elasticsearch.client', $config['client_service']);
+        } else {
+            $clientClass = ClientFactory::clientClass($engine);
+            $esc = new Definition($clientClass);
+            $esc->setFactory([ClientFactory::class, 'create']);
+            $esc->setArguments([
+                $engine,
+                $container->getParameter('wa72_elasticsearch.es_server'),
+                $config['http_client'],
+            ]);
+            $container->setDefinition('elasticsearch.client', $esc);
+            $container->setAlias($clientClass, 'elasticsearch.client');
 
-        $esc = new Definition(Client::class);
-        $esc->setFactory([new Reference('elasticsearch.clientbuilder'), 'build']);
-        $container->setDefinition('elasticsearch.client', $esc);
+            // kept for backward compatibility
+            $builderClass = ClientFactory::clientBuilderClass($engine);
+            if ($builderClass !== null) {
+                $cb = new Definition($builderClass);
+                $cb->setFactory([$builderClass, 'create']);
+                $cb->addMethodCall('setHosts', [$container->getParameter('wa72_elasticsearch.es_server')]);
+                $container->setDefinition('elasticsearch.clientbuilder', $cb);
+            }
+        }
 
         $ir = new Definition(IndexRegistry::class);
         $ir->addArgument(new Reference('elasticsearch.client'));

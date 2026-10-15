@@ -31,7 +31,7 @@ class deleteIndexCommand extends Command
     {
         $io = new SymfonyStyle($input, $output);
         $name = $input->getArgument('index');
-        $io->info('Elasticsearch hosts: ' . join(', ', $this->ir->getHosts()));
+        $io->info('Search hosts: ' . join(', ', $this->ir->getHosts()));
         $return = Command::INVALID;
         if ($name) {
             $io->title('About to DELETE index: ' . $name);

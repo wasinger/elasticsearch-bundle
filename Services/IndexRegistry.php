@@ -1,13 +1,15 @@
 <?php
 namespace Wa72\ElasticsearchBundle\Services;
 
+use Elastic\Elasticsearch\Client as ModernClient;
 use Elasticsearch\Client;
+use OpenSearch\Client as OpenSearchClient;
 use Wa72\ESTools\Index;
 
 class IndexRegistry
 {
     /**
-     * @var Client
+     * @var Client|ModernClient|OpenSearchClient
      */
     private $es;
     /**
@@ -17,7 +19,7 @@ class IndexRegistry
 
     private $hosts = [];
 
-    public function __construct(Client $es, array $hosts = [])
+    public function __construct(Client|ModernClient|OpenSearchClient $es, array $hosts = [])
     {
         $this->es = $es;
         $this->hosts = $hosts;

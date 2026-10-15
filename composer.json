@@ -1,5 +1,6 @@
 {
     "name": "wa72/elasticsearch-bundle",
+    "description": "Symfony bundle integrating wa72/es-tools with Elasticsearch or OpenSearch",
     "type": "symfony-bundle",
     "license": "MIT",
     "authors": [
@@ -9,11 +10,41 @@
         }
     ],
     "require": {
-        "wa72/es-tools": "dev-master"
+        "php": "^8",
+        "wa72/es-tools": "^0.3",
+        "symfony/config": "^6.4|^7",
+        "symfony/console": "^6.4|^7",
+        "symfony/dependency-injection": "^6.4|^7",
+        "symfony/http-kernel": "^6.4|^7",
+        "symfony/http-client": "^6.4|^7",
+        "nyholm/psr7": "^1.8"
+    },
+    "suggest": {
+        "elasticsearch/elasticsearch": "Install ^6.8.4, ^7.17, ^8.19 or ^9.0 to use Elasticsearch",
+        "opensearch-project/opensearch-php": "Install ^2.7 to use OpenSearch",
+        "guzzlehttp/guzzle": "Install ^7.0 to use Guzzle instead of Symfony HttpClient (http_client: guzzle)"
+    },
+    "conflict": {
+        "elasticsearch/elasticsearch": "<6.8.4 || >=7.0 <7.17 || >=8.0 <8.19 || >=10.0",
+        "opensearch-project/opensearch-php": "<2.7.0 || >=3.0"
     },
     "autoload": {
         "psr-4": {
             "Wa72\\ElasticsearchBundle\\": ""
+        },
+        "exclude-from-classmap": [
+            "/tests/"
+        ]
+    },
+    "autoload-dev": {
+        "psr-4": {
+            "Wa72\\ElasticsearchBundle\\Tests\\": "tests/"
         }
+    },
+    "require-dev": {
+        "elasticsearch/elasticsearch": "^9.0",
+        "opensearch-project/opensearch-php": "^2.7",
+        "guzzlehttp/guzzle": "^7.0",
+        "phpunit/phpunit": "^10|^11"
     }
 }

@@ -41,7 +41,7 @@ class checkIndexCommand extends Command
     {
         $io = new SymfonyStyle($input, $output);
         $name = $input->getArgument('index');
-        $io->info('Elasticsearch hosts: ' . join(', ', $this->ir->getHosts()));
+        $io->info('Search hosts: ' . join(', ', $this->ir->getHosts()));
         $return = self::RETURN_WARNING;
         if ($name) {
             $io->title('Checking index: ' . $name);
