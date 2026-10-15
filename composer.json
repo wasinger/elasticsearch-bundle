@@ -45,6 +45,7 @@
         "elasticsearch/elasticsearch": "^9.0",
         "opensearch-project/opensearch-php": "^2.7",
         "guzzlehttp/guzzle": "^7.0",
+        "symfony/framework-bundle": "^6.4|^7",
         "phpunit/phpunit": "^10|^11"
     }
 }

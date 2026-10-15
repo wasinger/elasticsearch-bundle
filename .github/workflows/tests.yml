@@ -1,0 +1,208 @@
+name: Tests
+
+on:
+  push:
+    branches: [ master ]
+  pull_request:
+    branches: [ master ]
+  workflow_dispatch:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+
+    strategy:
+      fail-fast: false
+      matrix:
+        php-version: ['8.3', '8.4', '8.5']
+        backend: ['elasticsearch-6', 'elasticsearch-7', 'elasticsearch-8', 'elasticsearch-9', 'opensearch-2', 'opensearch-3']
+        symfony-version: ['7.4.*']
+        # Install only the selected native client, including in development dependencies.
+        # Unique host ports allow concurrent local act jobs.
+        include:
+          - backend: 'elasticsearch-6'
+            engine: 'elasticsearch'
+            server-version: '6.8.23'
+            image: 'docker.elastic.co/elasticsearch/elasticsearch:6.8.23'
+            client-package: 'elasticsearch/elasticsearch'
+            client-version: '^6.8.4'
+            port-prefix: '216'
+            service-options: '--env=xpack.security.enabled=false'
+          - backend: 'elasticsearch-7'
+            engine: 'elasticsearch'
+            server-version: '7.17.29'
+            image: 'docker.elastic.co/elasticsearch/elasticsearch:7.17.29'
+            client-package: 'elasticsearch/elasticsearch'
+            client-version: '^7.17'
+            port-prefix: '217'
+            service-options: '--env=xpack.security.enabled=false'
+          - backend: 'elasticsearch-8'
+            engine: 'elasticsearch'
+            server-version: '8.19.23'
+            image: 'docker.elastic.co/elasticsearch/elasticsearch:8.19.23'
+            client-package: 'elasticsearch/elasticsearch'
+            client-version: '^8.19'
+            port-prefix: '218'
+            service-options: '--env=xpack.security.enabled=false'
+          - backend: 'elasticsearch-9'
+            engine: 'elasticsearch'
+            server-version: '9.5.5'
+            image: 'docker.elastic.co/elasticsearch/elasticsearch:9.5.5'
+            client-package: 'elasticsearch/elasticsearch'
+            client-version: '^9.0'
+            port-prefix: '219'
+            service-options: '--env=xpack.security.enabled=false'
+          - backend: 'opensearch-2'
+            engine: 'opensearch'
+            server-version: '2.19.6'
+            image: 'opensearchproject/opensearch:2.19.6'
+            client-package: 'opensearch-project/opensearch-php'
+            client-version: '^2.7'
+            port-prefix: '222'
+            service-options: '--workdir=/usr/share/opensearch --env=DISABLE_SECURITY_PLUGIN=true --env=DISABLE_INSTALL_DEMO_CONFIG=true'
+          - backend: 'opensearch-3'
+            engine: 'opensearch'
+            server-version: '3.9.0'
+            image: 'opensearchproject/opensearch:3.9.0'
+            client-package: 'opensearch-project/opensearch-php'
+            client-version: '^2.7'
+            port-prefix: '223'
+            service-options: '--workdir=/usr/share/opensearch --env=DISABLE_SECURITY_PLUGIN=true --env=DISABLE_INSTALL_DEMO_CONFIG=true'
+          - php-version: '8.3'
+            php-port-suffix: '83'
+          - php-version: '8.4'
+            php-port-suffix: '84'
+          - php-version: '8.5'
+            php-port-suffix: '85'
+          # Lowest supported Symfony version, with the oldest and the newest client generation.
+          # These entries create additional jobs, so they must contain all keys.
+          - php-version: '8.3'
+            php-port-suffix: '83'
+            symfony-version: '6.4.*'
+            backend: 'elasticsearch-6'
+            engine: 'elasticsearch'
+            server-version: '6.8.23'
+            image: 'docker.elastic.co/elasticsearch/elasticsearch:6.8.23'
+            client-package: 'elasticsearch/elasticsearch'
+            client-version: '^6.8.4'
+            port-prefix: '226'
+            service-options: '--env=xpack.security.enabled=false'
+          - php-version: '8.3'
+            php-port-suffix: '83'
+            symfony-version: '6.4.*'
+            backend: 'opensearch-3'
+            engine: 'opensearch'
+            server-version: '3.9.0'
+            image: 'opensearchproject/opensearch:3.9.0'
+            client-package: 'opensearch-project/opensearch-php'
+            client-version: '^2.7'
+            port-prefix: '227'
+            service-options: '--workdir=/usr/share/opensearch --env=DISABLE_SECURITY_PLUGIN=true --env=DISABLE_INSTALL_DEMO_CONFIG=true'
+
+    name: PHP ${{ matrix.php-version }}, ${{ matrix.backend }}, Symfony ${{ matrix.symfony-version }}
+
+    env:
+      SEARCH_ENGINE: ${{ matrix.engine }}
+      EXPECTED_SEARCH_VERSION: ${{ matrix.server-version }}
+
+    services:
+      search:
+        image: ${{ matrix.image }}
+        ports:
+          - ${{ matrix.port-prefix }}${{ matrix.php-port-suffix }}:9200
+        # Keep service environment in options: act replaces env when options also contain --env.
+        options: >-
+          --env=discovery.type=single-node
+          --env=action.destructive_requires_name=false
+          --env="ES_JAVA_OPTS=-Xms512m -Xmx512m"
+          --env="OPENSEARCH_JAVA_OPTS=-Xms512m -Xmx512m"
+          ${{ matrix.service-options }}
+          --health-cmd "curl -fs http://localhost:9200/_cluster/health?wait_for_status=yellow || exit 1"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 20
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    # Only needed when running locally with nektos/act behind an HTTP proxy:
+    # setup-php downloads files using "sudo curl", and sudo drops the proxy environment variables by default
+    - name: Keep proxy environment variables for sudo (act only)
+      if: ${{ env.ACT }}
+      run: echo 'Defaults env_keep += "http_proxy https_proxy no_proxy HTTP_PROXY HTTPS_PROXY NO_PROXY"' | sudo tee /etc/sudoers.d/proxy
+
+    - name: Setup PHP
+      uses: shivammathur/setup-php@v2
+      with:
+        php-version: ${{ matrix.php-version }}
+        extensions: mbstring, json, curl
+        coverage: none
+        tools: composer:v2
+
+    - name: Get Composer cache directory
+      id: composer-cache
+      run: echo "dir=$(composer config cache-files-dir)" >> $GITHUB_OUTPUT
+
+    - name: Cache Composer packages
+      # Local act runs do not need the GitHub cache service.
+      if: ${{ !env.ACT }}
+      uses: actions/cache@v4
+      with:
+        path: ${{ steps.composer-cache.outputs.dir }}
+        key: ${{ runner.os }}-php-${{ matrix.php-version }}-${{ matrix.backend }}-sf${{ matrix.symfony-version }}-${{ hashFiles('composer.json') }}
+        restore-keys: |
+          ${{ runner.os }}-php-${{ matrix.php-version }}-${{ matrix.backend }}-sf${{ matrix.symfony-version }}-
+
+    # composer.lock is not part of the repository, so this resolves the newest
+    # dependencies (incl. PHPUnit version) compatible with the PHP and Symfony version of the matrix
+    - name: Install Composer dependencies
+      env:
+        SF: ${{ matrix.symfony-version }}
+      run: |
+        composer remove --dev --no-update --no-interaction elasticsearch/elasticsearch opensearch-project/opensearch-php
+        composer require --dev --no-update --no-interaction '${{ matrix.client-package }}:${{ matrix.client-version }}'
+        composer require --no-update --no-interaction "symfony/config:$SF" "symfony/console:$SF" "symfony/dependency-injection:$SF" "symfony/http-kernel:$SF" "symfony/http-client:$SF"
+        composer require --dev --no-update --no-interaction "symfony/framework-bundle:$SF"
+        composer update --prefer-dist --no-progress --no-interaction
+        composer show | grep -E '^(elasticsearch/|opensearch-project/|symfony/http-kernel |symfony/http-client |phpunit/phpunit |wa72/)' || true
+
+    # Where the service container is reachable depends on the environment:
+    # - GitHub hosted runners and nektos/act (job container in host network): on localhost via the mapped host port
+    # - job container in the same docker network as the service: via the service name
+    - name: Wait for search server
+      env:
+        MAPPED_PORT: ${{ job.services.search.ports['9200'] }}
+      run: |
+        candidates="localhost:${{ matrix.port-prefix }}${{ matrix.php-port-suffix }}"
+        [ -n "$MAPPED_PORT" ] && candidates="$candidates localhost:$MAPPED_PORT"
+        candidates="$candidates search:9200"
+        echo "Trying search server at: $candidates"
+        for i in $(seq 1 36); do
+          for host in $candidates; do
+            if curl -fs --noproxy '*' "http://$host/_cluster/health?wait_for_status=yellow&timeout=5s" > /dev/null; then
+              echo "Search server is available at $host"
+              echo "ES_HOST=$host" >> $GITHUB_ENV
+              curl -s --noproxy '*' "http://$host"
+              exit 0
+            fi
+          done
+          echo "Still waiting for search server ..."
+          sleep 5
+        done
+        echo "Search server did not become available"
+        exit 1
+
+    - name: Verify isolated client installation
+      run: |
+        php -r '
+          require "vendor/autoload.php";
+          $openSearch = class_exists(\OpenSearch\Client::class);
+          $elasticsearch = class_exists(\Elastic\Elasticsearch\Client::class) || class_exists(\Elasticsearch\Client::class);
+          if ($openSearch !== (getenv("SEARCH_ENGINE") === "opensearch") || $elasticsearch !== !$openSearch) {
+              throw new \RuntimeException("Only the selected engine client should be installed.");
+          }
+        '
+
+    - name: Run tests
+      run: vendor/bin/phpunit --display-skipped --display-deprecations

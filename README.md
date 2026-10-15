@@ -1,6 +1,8 @@
 Wa72\ElasticsearchBundle
 ========================
 
+[![Tests](https://github.com/wasinger/elasticsearch-bundle/workflows/Tests/badge.svg?branch=master)](https://github.com/wasinger/elasticsearch-bundle/actions)
+
 Symfony-bundle for working with Elasticsearch or OpenSearch.
 
 Goals and Features:
@@ -113,3 +115,63 @@ Running the tests
 composer install
 vendor/bin/phpunit
 ```
+
+Most tests do not need a search server. They check the configuration, the service definitions,
+the client factory and the console commands in a booted Symfony application.
+
+The integration tests in `tests/Integration` need a running server compatible with the installed client.
+Select the engine with `SEARCH_ENGINE` (`elasticsearch` (default) or `opensearch`) and the server with `ES_HOST`
+(default: `localhost:9200`). If the server is not available, these tests are skipped (or fail if `CI` is set).
+All indices created by the tests start with `wa72_bundle_test_` and are deleted afterwards.
+
+For example, to test Elasticsearch 9:
+
+```bash
+composer remove --dev --no-update opensearch-project/opensearch-php
+composer require --dev --no-update 'elasticsearch/elasticsearch:^9.0'
+composer update
+
+docker run -d --rm --name es-bundle-test -p 9210:9200 \
+  -e discovery.type=single-node -e xpack.security.enabled=false \
+  -e 'ES_JAVA_OPTS=-Xms512m -Xmx512m' \
+  docker.elastic.co/elasticsearch/elasticsearch:9.5.5
+ES_HOST=http://localhost:9210 vendor/bin/phpunit
+docker stop es-bundle-test
+```
+
+To test OpenSearch:
+
+```bash
+composer remove --dev --no-update elasticsearch/elasticsearch
+composer require --dev --no-update 'opensearch-project/opensearch-php:^2.7'
+composer update
+
+docker run -d --rm --name opensearch-bundle-test -p 9210:9200 \
+  -e discovery.type=single-node -e DISABLE_SECURITY_PLUGIN=true \
+  -e DISABLE_INSTALL_DEMO_CONFIG=true \
+  -e 'OPENSEARCH_JAVA_OPTS=-Xms512m -Xmx512m' \
+  opensearchproject/opensearch:3.9.0
+SEARCH_ENGINE=opensearch ES_HOST=http://localhost:9210 vendor/bin/phpunit
+docker stop opensearch-bundle-test
+```
+
+### GitHub Actions
+
+The workflow `.github/workflows/tests.yml` runs the tests with PHP 8.3, 8.4 and 8.5 against
+Elasticsearch 6.8, 7.17, 8.19 and 9.5 and OpenSearch 2.19 and 3.9 with Symfony 7.4.
+Two additional jobs use Symfony 6.4. Each job installs only the client for its engine.
+
+Run the workflow locally with [nektos/act](https://github.com/nektos/act). Use a recent version of act:
+older versions (e.g. 0.2.52) do not support actions running on `node24`, such as the current `shivammathur/setup-php`.
+
+```bash
+# all 20 jobs; limit concurrency for local memory usage
+act push -j test --concurrent-jobs 2
+
+# a single job
+act push -j test --matrix php-version:8.5 --matrix backend:opensearch-3
+act push -j test --matrix php-version:8.3 --matrix backend:elasticsearch-6 --matrix symfony-version:6.4.*
+```
+
+When working behind an HTTP proxy, pass the proxy settings to the job containers,
+e.g. `act push -j test --env https_proxy=$https_proxy --env http_proxy=$http_proxy --env no_proxy=localhost,127.0.0.1,search`.
